@@ -1,36 +1,41 @@
 import os
 import math
-import requests
+import tempfile
 import streamlit as st
-import replicate
+import numpy as np
 
+from PIL import Image, ImageDraw
 from gtts import gTTS
 from moviepy.editor import (
-    VideoFileClip,
-    AudioFileClip,
-    concatenate_videoclips
+    ImageSequenceClip,
+    AudioFileClip
 )
 
 st.set_page_config(
-    page_title="AI Cartoon Video Generator",
+    page_title="2D AI Cartoon Studio",
     page_icon="🎬",
-    layout="centered"
+    layout="wide"
 )
 
-st.title("🎬 AI Cartoon Video Generator")
+st.title("🎬 2D Cartoon Studio")
+st.write("Create animated cartoon videos with your own voiceover!")
 
-st.write("Turn your imagination into animated videos!")
-
+# -------------------------------
 # USER INPUT
+# -------------------------------
 
-video_prompt = st.text_area(
-    "Describe your cartoon video:",
-    "Two cute cartoon boys dancing together in a colorful park, 3D animation style."
+story = st.text_area(
+    "✍️ Write your cartoon story",
+    "A little boy walks into a beautiful forest. "
+    "He meets a friendly elephant. They become friends.",
+    height=150
 )
 
 voice_text = st.text_area(
-    "What should the characters say?",
-    "Hello everyone! Welcome to our cartoon world!"
+    "🎙️ Voiceover Script",
+    "Hello! Today I am going on an adventure. "
+    "Look! There is a friendly elephant!",
+    height=100
 )
 
 col1, col2 = st.columns(2)
@@ -42,141 +47,277 @@ with col1:
     )
 
 with col2:
-    duration = st.selectbox(
-        "Video Duration",
-        [5, 10, 15]
+    duration = st.slider(
+        "Video Duration (seconds)",
+        5, 20, 10
     )
 
-if st.button("🚀 Generate AI Video"):
+# -------------------------------
+# CARTOON DRAWING
+# -------------------------------
 
-    if not video_prompt.strip():
-        st.error("Please enter a video prompt.")
+def draw_scene(frame, scene, t):
+
+    width, height = 640, 360
+
+    img = Image.new(
+        "RGB",
+        (width, height),
+        (135, 206, 235)
+    )
+
+    draw = ImageDraw.Draw(img)
+
+    # Sun
+
+    draw.ellipse(
+        (510, 30, 570, 90),
+        fill="yellow"
+    )
+
+    # Ground
+
+    draw.rectangle(
+        (0, 270, 640, 360),
+        fill=(70, 180, 90)
+    )
+
+    # Trees
+
+    for x in [60, 560]:
+        draw.rectangle(
+            (x+20, 190, x+40, 280),
+            fill=(110, 65, 30)
+        )
+
+        draw.ellipse(
+            (x, 120, x+80, 220),
+            fill=(30, 130, 55)
+        )
+
+    # Animated boy
+
+    boy_x = int(180 + math.sin(t * 3) * 35)
+    boy_y = int(205 + abs(math.sin(t * 6)) * 5)
+
+    # Legs
+
+    draw.line(
+        (boy_x+25, boy_y+85, boy_x+10, boy_y+125),
+        fill="black",
+        width=8
+    )
+
+    draw.line(
+        (boy_x+35, boy_y+85, boy_x+55, boy_y+125),
+        fill="black",
+        width=8
+    )
+
+    # Body
+
+    draw.rounded_rectangle(
+        (boy_x, boy_y+35, boy_x+60, boy_y+95),
+        radius=12,
+        fill=(30, 90, 230)
+    )
+
+    # Head
+
+    draw.ellipse(
+        (boy_x+5, boy_y-15, boy_x+55, boy_y+40),
+        fill=(255, 205, 160),
+        outline="black",
+        width=2
+    )
+
+    # Eyes
+
+    draw.ellipse(
+        (boy_x+17, boy_y+5, boy_x+23, boy_y+12),
+        fill="black"
+    )
+
+    draw.ellipse(
+        (boy_x+38, boy_y+5, boy_x+44, boy_y+12),
+        fill="black"
+    )
+
+    # Elephant
+
+    elephant_x = int(400 + math.sin(t * 2) * 12)
+
+    draw.ellipse(
+        (elephant_x, 190, elephant_x+120, 275),
+        fill=(150, 150, 165),
+        outline="black",
+        width=2
+    )
+
+    draw.ellipse(
+        (elephant_x+10, 160, elephant_x+65, 225),
+        fill=(170, 170, 185),
+        outline="black"
+    )
+
+    draw.ellipse(
+        (elephant_x+78, 205, elephant_x+90, 217),
+        fill="black"
+    )
+
+    # Moving trunk
+
+    draw.arc(
+        (elephant_x+65, 220, elephant_x+125, 285),
+        start=0,
+        end=180,
+        fill=(100, 100, 120),
+        width=12
+    )
+
+    # Character caption
+
+    draw.text(
+        (20, 20),
+        scene,
+        fill="black"
+    )
+
+    return np.array(img)
+
+
+# -------------------------------
+# VIDEO GENERATION
+# -------------------------------
+
+if st.button(
+    "🚀 Generate Cartoon Video",
+    type="primary"
+):
+
+    if not story.strip():
+        st.error("Please write your story.")
+
+    elif not voice_text.strip():
+        st.error("Please enter voiceover text.")
 
     else:
 
         try:
 
-            with st.spinner("🎨 Generating AI cartoon video..."):
+            with tempfile.TemporaryDirectory() as temp:
 
-                # STEP 1: GENERATE VIDEO
+                # VOICE GENERATION
 
-                token = st.secrets["REPLICATE_API_TOKEN"]
+                st.info("🎙️ Creating voiceover...")
 
-                client = replicate.Client(
-                    api_token=token
+                audio_path = os.path.join(
+                    temp,
+                    "voice.mp3"
                 )
-
-                output = client.run(
-                    "alibaba/wan-3",
-                    input={
-                        "prompt": (
-                            "High quality 3D cartoon animation. "
-                            + video_prompt
-                        ),
-                        "duration": duration,
-                        "resolution": "480p",
-                        "aspect_ratio": "16:9"
-                    }
-                )
-
-                # GET VIDEO URL
-
-                if isinstance(output, list):
-                    video_url = str(output[0])
-                elif hasattr(output, "url"):
-                    video_url = output.url()
-                else:
-                    video_url = str(output)
-
-                # DOWNLOAD VIDEO
-
-                response = requests.get(
-                    video_url,
-                    timeout=180
-                )
-
-                response.raise_for_status()
-
-                with open("generated_video.mp4", "wb") as f:
-                    f.write(response.content)
-
-            st.success("AI Video Generated!")
-
-            with st.spinner("🎙️ Generating voiceover..."):
-
-                # STEP 2: GENERATE VOICE
 
                 tts = gTTS(
                     text=voice_text,
                     lang=language
                 )
 
-                tts.save("voice.mp3")
+                tts.save(audio_path)
 
-            with st.spinner("🎬 Combining video and voice..."):
+                audio = AudioFileClip(audio_path)
 
-                # STEP 3: COMBINE VIDEO + AUDIO
+                # SCENE GENERATION
 
-                video = VideoFileClip(
-                    "generated_video.mp4"
-                )
+                st.info("🎨 Creating 2D animation...")
 
-                audio = AudioFileClip("voice.mp3")
+                fps = 15
 
-                # Repeat video if voice is longer
+                video_duration = duration
 
-                if audio.duration > video.duration:
+                total_frames = fps * video_duration
 
-                    count = math.ceil(
-                        audio.duration / video.duration
+                frames = []
+
+                for i in range(total_frames):
+
+                    t = i / fps
+
+                    scene_number = min(
+                        3,
+                        int(t / (video_duration / 4)) + 1
                     )
 
-                    video = concatenate_videoclips(
-                        [video] * count
+                    scene_labels = [
+                        "A Beautiful Cartoon World",
+                        "The Boy Goes On An Adventure",
+                        "Meeting A Friendly Elephant",
+                        "A New Friendship Begins"
+                    ]
+
+                    frame = draw_scene(
+                        i,
+                        scene_labels[scene_number-1],
+                        t
                     )
 
-                video = video.subclip(
-                    0,
-                    min(video.duration, audio.duration)
+                    frames.append(frame)
+
+                # CREATE MP4
+
+                clip = ImageSequenceClip(
+                    frames,
+                    fps=fps
                 )
 
-                final_video = video.set_audio(
-                    audio.subclip(0, video.duration)
+                # Match video to voice duration
+
+                final_duration = max(
+                    video_duration,
+                    audio.duration
                 )
 
-                final_video.write_videofile(
-                    "final_video.mp4",
+                clip = clip.set_duration(
+                    final_duration
+                )
+
+                clip = clip.set_audio(audio)
+
+                output_path = os.path.join(
+                    temp,
+                    "cartoon_video.mp4"
+                )
+
+                clip.write_videofile(
+                    output_path,
+                    fps=fps,
                     codec="libx264",
-                    audio_codec="aac"
+                    audio_codec="aac",
+                    logger=None
                 )
 
-                video.close()
+                clip.close()
                 audio.close()
-                final_video.close()
 
-            # STEP 4: DISPLAY VIDEO
+                # SHOW VIDEO
 
-            st.success("🎉 Your cartoon video is ready!")
+                st.success("🎉 Cartoon video generated!")
 
-            st.subheader("🎥 Generated Video")
+                st.video(output_path)
 
-            st.video("final_video.mp4")
+                with open(output_path, "rb") as file:
 
-            # STEP 5: DOWNLOAD
-
-            with open("final_video.mp4", "rb") as f:
-
-                st.download_button(
-                    "📥 Download Cartoon Video",
-                    data=f,
-                    file_name="my_cartoon_video.mp4",
-                    mime="video/mp4"
-                )
+                    st.download_button(
+                        "📥 Download MP4 Video",
+                        data=file.read(),
+                        file_name="cartoon_video.mp4",
+                        mime="video/mp4"
+                    )
 
         except Exception as e:
 
-            st.error(f"Generation Error: {str(e)}")
+            st.error(f"Generation Error: {e}")
 
 st.markdown("---")
 
-st.caption("Powered by Streamlit, Wan AI & gTTS")
+st.caption(
+    "2D Cartoon Studio | Python + Streamlit + Pillow + MoviePy"
+)

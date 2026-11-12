@@ -1,7 +1,7 @@
 import os
 import time
 import streamlit as st
-from gTTS import gTTS
+from gtts import gTTS  # <-- Yahan 'gtts' lowercase hona chahiye
 
 st.set_page_config(page_title="AI Video & Voice Generator", page_icon="🎬", layout="centered")
 
@@ -35,7 +35,7 @@ if st.button("🚀 Generate Video & Voice Clip", type="primary"):
                 st.subheader("🔊 Generated Voiceover:")
                 st.audio(audio_path, format="audio/mp3")
                 
-                # Step 3: Video Display (Using 100% reliable direct MP4 link)
+                # Step 3: Video Display
                 st.subheader("🎥 Generated Video Preview:")
                 sample_video = "https://www.w3schools.com/html/mov_bbb.mp4"
                 st.video(sample_video)

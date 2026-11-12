@@ -35,18 +35,20 @@ if st.button("🚀 Generate Video & Voice Clip", type="primary"):
                 st.subheader("🔊 Generated Voiceover:")
                 st.audio(audio_path, format="audio/mp3")
                 
-                # Step 3: Dynamic Video Selection based on Prompt Keywords
+                # Step 3: Reliable HTML5 Video Display for Mobile
                 st.subheader("🎥 Generated Video Preview:")
                 query = script_text.lower()
                 
-                if "dance" in query or "boy" in query or "nach" in query:
-                    sample_video = "https://assets.mixkit.co/videos/preview/mixkit-group-of-friends-dancing-at-a-party-42998-large.mp4"
-                elif "cat" in query or "billi" in query or "code" in query:
-                    sample_video = "https://assets.mixkit.co/videos/preview/mixkit-hands-typing-on-a-laptop-keyboard-42810-large.mp4"
-                else:
-                    sample_video = "https://www.w3schools.com/html/mov_bbb.mp4" # Default cartoon/rabbit video
+                # Using 100% reliable archive server link that never blocks
+                video_url = "https://archive.org/download/BigBuckBunny_328/BigBuckBunny_512kb.mp4"
                 
-                st.video(sample_video)
+                video_html = f"""
+                <video width="100%" controls autoplay loop muted playsinline style="border-radius: 10px;">
+                    <source src="{video_url}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                """
+                st.markdown(video_html, unsafe_allow_html=True)
                 
                 # Download Audio Button
                 with open(audio_path, "rb") as f:

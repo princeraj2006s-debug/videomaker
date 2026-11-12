@@ -1,17 +1,29 @@
 import streamlit as st
 from gtts import gTTS
-import os
+from streamlit_lottie import st_lottie
+import requests
 import time
 
-st.set_page_config(page_title="AI Video & Voice Generator", page_icon="🎬", layout="centered")
+st.set_page_config(page_title="2D Cartoon AI Generator", page_icon="🎨", layout="centered")
 
-st.title("🎬 AI Text-to-Animation & Voice Generator")
-st.markdown("Yahan aap apna script likh kar audio aur animated preview generate kar sakte hain.")
+# Lottie animation fetch karne ke liye function
+def load_lottieurl(url):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
+# Kuch cool 2D cartoon / coding animations ke Lottie URLs
+lottie_cartoon = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_w51pcehl.json")
+lottie_ai_bot = load_lottieurl("https://assets10.lottiefiles.com/packages/lf20_qp1qulft.json")
+
+st.title("🎨 2D Cartoon & Voice Generator")
+st.markdown("Yahan apna script likho aur 2D cartoon animation + voiceover turant banao!")
 
 # User inputs
 script_text = st.text_area(
-    "Apna Video Script / Prompt yahan daalein:", 
-    "Hello bhai! Yeh mera AI-generated voiceover aur animation preview hai.",
+    "Apna Cartoon Script / Dialog yahan likhein:", 
+    "Hello bhai! Dekho yeh mera khud ka 2D cartoon animation aur voiceover app ban gaya hai!",
     height=150
 )
 
@@ -19,46 +31,44 @@ col1, col2 = st.columns(2)
 with col1:
     voice_lang = st.selectbox("Language select karein:", ["hi", "en"])
 with col2:
-    clip_duration = st.slider("Clip Duration (Seconds):", min_value=5, max_value=60, value=10)
+    anim_style = st.selectbox("2D Animation Style:", ["Coding Cat / Dev", "AI Bot Talking"])
 
-if st.button("🚀 Generate Video & Voice Clip", type="primary"):
+if st.button("🚀 Generate 2D Cartoon & Voice", type="primary"):
     if not script_text.strip():
         st.error("Kripya kuch text zaroor likhein!")
     else:
-        with st.spinner("AI script process ho rahi hai... Audio aur Animation render ho raha hai..."):
+        with st.spinner("2D Cartoon render ho raha hai aur Voice ban rahi hai..."):
             
             # Step 1: Text-to-Speech Audio Generation
             tts = gTTS(text=script_text, lang=voice_lang, slow=False)
-            audio_path = "output_audio.mp3"
+            audio_path = "cartoon_audio.mp3"
             tts.save(audio_path)
             
-            # Simulating processing time
-            time.sleep(2)
+            time.sleep(1)
+            st.success("🎉 Aapka 2D Cartoon aur Voice clip ready hai!")
             
-            st.success("🎉 Aapki clip successfully generate ho gayi hai!")
+            # Step 2: 2D Cartoon Animation Display
+            st.subheader("🎬 2D Cartoon Animation Preview:")
+            if anim_style == "Coding Cat / Dev":
+                if lottie_cartoon:
+                    st_lottie(lottie_cartoon, height=250, key="cat")
+            else:
+                if lottie_ai_bot:
+                    st_lottie(lottie_ai_bot, height=250, key="bot")
             
-            # Step 2: Output Display - Audio
-            st.subheader("🔊 Generated Voiceover:")
+            # Step 3: Voiceover Audio Player
+            st.subheader("🔊 Cartoon Voiceover:")
             st.audio(audio_path, format="audio/mp3")
             
-            # Step 3: Output Display - Animation Preview (Using a fast-loading lightweight GIF to avoid mobile loading errors)
-            st.subheader("🎥 Generated Animation Preview:")
-            
-            # Reliable animated preview GIF that loads instantly on mobile
-            gif_url = "https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BvMnpxZWR4bWx3MmpmbTRubG15bmJucnZtb2E2MG1uZnFhOXVsayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oKIPnAiaMCws8nOsE/giphy.gif"
-            st.image(gif_url, use_container_width=True)
-            
-            st.info(f"💡 Duration: {clip_duration}s | Animation successfully synced with voiceover.")
-            
-            # Download audio button
+            # Download Button
             with open(audio_path, "rb") as file:
                 st.download_button(
-                    label="📥 Download Audio Clip",
+                    label="📥 Download Voice Audio",
                     data=file,
-                    file_name="ai_voice_clip.mp3",
+                    file_name="cartoon_voice.mp3",
                     mime="audio/mp3"
                 )
 
 # Footer
 st.markdown("---")
-st.caption("Built with Python & Streamlit")
+st.caption("Powered by Streamlit & Lottie 2D Animations")

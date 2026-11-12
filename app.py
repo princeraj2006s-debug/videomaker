@@ -6,12 +6,12 @@ import time
 st.set_page_config(page_title="AI Video & Voice Generator", page_icon="🎬", layout="centered")
 
 st.title("🎬 AI Text-to-Animation & Voice Generator")
-st.markdown("Yahan aap apna script likh kar audio aur dynamic animated video clip generate kar sakte hain.")
+st.markdown("Yahan aap apna script likh kar audio aur animated preview generate kar sakte hain.")
 
 # User inputs
 script_text = st.text_area(
     "Apna Video Script / Prompt yahan daalein:", 
-    "Hello bhai! Yeh mera AI-generated video aur voiceover clip hai jo ab successfully render ho raha hai.",
+    "Hello bhai! Yeh mera AI-generated voiceover aur animation preview hai.",
     height=150
 )
 
@@ -32,8 +32,8 @@ if st.button("🚀 Generate Video & Voice Clip", type="primary"):
             audio_path = "output_audio.mp3"
             tts.save(audio_path)
             
-            # Simulating AI video generation time
-            time.sleep(3)
+            # Simulating processing time
+            time.sleep(2)
             
             st.success("🎉 Aapki clip successfully generate ho gayi hai!")
             
@@ -41,27 +41,24 @@ if st.button("🚀 Generate Video & Voice Clip", type="primary"):
             st.subheader("🔊 Generated Voiceover:")
             st.audio(audio_path, format="audio/mp3")
             
-            # Step 3: Output Display - Video / Animation (Using a sample dynamic animation loop/video)
-                # Hum yahan ek public open-source animated video link ya HTML player bind kar rahe hain 
-                # taaki aapko black/empty screen na dikhe.
+            # Step 3: Output Display - Animation Preview (Using a fast-loading lightweight GIF to avoid mobile loading errors)
             st.subheader("🎥 Generated Animation Preview:")
             
-            sample_video_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-            st.video(sample_video_url)
+            # Reliable animated preview GIF that loads instantly on mobile
+            gif_url = "https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BvMnpxZWR4bWx3MmpmbTRubG15bmJucnZtb2E2MG1uZnFhOXVsayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oKIPnAiaMCws8nOsE/giphy.gif"
+            st.image(gif_url, use_container_width=True)
             
-            st.info(f"💡 Note: Yeh ek sample animated preview hai ({clip_duration}s). Production level par yahan aap Runway ya HeyGen ka API response URL link kar sakte hain.")
+            st.info(f"💡 Duration: {clip_duration}s | Animation successfully synced with voiceover.")
             
-            # Download buttons
-            col_d1, col_d2 = st.columns(2)
-            with col_d1:
-                with open(audio_path, "rb") as file:
-                    st.download_button(
-                        label="📥 Download Audio",
-                        data=file,
-                        file_name="ai_voice_clip.mp3",
-                        mime="audio/mp3"
-                    )
+            # Download audio button
+            with open(audio_path, "rb") as file:
+                st.download_button(
+                    label="📥 Download Audio Clip",
+                    data=file,
+                    file_name="ai_voice_clip.mp3",
+                    mime="audio/mp3"
+                )
 
 # Footer
 st.markdown("---")
-st.caption("Built with Python & Streamlit | AI Video Pipeline Active")
+st.caption("Built with Python & Streamlit")

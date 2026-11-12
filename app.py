@@ -1,41 +1,50 @@
-import os
-import math
-import tempfile
 import streamlit as st
-import numpy as np
-
-from PIL import Image, ImageDraw
+import streamlit.components.v1 as components
 from gtts import gTTS
-from moviepy.editor import (
-    ImageSequenceClip,
-    AudioFileClip
-)
+import tempfile
+import os
+import json
+import base64
 
 st.set_page_config(
-    page_title="2D AI Cartoon Studio",
+    page_title="3D Cartoon AI Studio",
     page_icon="🎬",
     layout="wide"
 )
 
-st.title("🎬 2D Cartoon Studio")
-st.write("Create animated cartoon videos with your own voiceover!")
+st.markdown("""
+<style>
+.stApp {
+    background: #080d1b;
+    color: white;
+}
+h1 {
+    color: #65b8ff;
+    text-align: center;
+}
+.stButton button {
+    background: linear-gradient(90deg,#1677ff,#8b42ff);
+    color: white;
+    border-radius: 12px;
+    width: 100%;
+    height: 50px;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# -------------------------------
-# USER INPUT
-# -------------------------------
+st.title("🎬 3D CARTOON AI STUDIO")
+st.caption("Create interactive 3D animated scenes")
 
-story = st.text_area(
-    "✍️ Write your cartoon story",
-    "A little boy walks into a beautiful forest. "
-    "He meets a friendly elephant. They become friends.",
-    height=150
+prompt = st.text_area(
+    "Describe your 3D cartoon scene",
+    "A cute robot walking in a beautiful futuristic city with colorful buildings",
+    height=120
 )
 
 voice_text = st.text_area(
-    "🎙️ Voiceover Script",
-    "Hello! Today I am going on an adventure. "
-    "Look! There is a friendly elephant!",
-    height=100
+    "Voiceover Script",
+    "Welcome to our amazing cartoon world!"
 )
 
 col1, col2 = st.columns(2)
@@ -48,276 +57,625 @@ with col1:
 
 with col2:
     duration = st.slider(
-        "Video Duration (seconds)",
-        5, 20, 10
+        "Animation Duration",
+        5, 30, 10
     )
 
-# -------------------------------
-# CARTOON DRAWING
-# -------------------------------
+def detect_objects(text):
 
-def draw_scene(frame, scene, t):
+    text = text.lower()
 
-    width, height = 640, 360
+    objects = []
 
-    img = Image.new(
-        "RGB",
-        (width, height),
-        (135, 206, 235)
-    )
+    keywords = {
+        "robot": "robot",
+        "car": "car",
+        "dog": "dog",
+        "cat": "cat",
+        "tree": "tree",
+        "house": "house",
+        "boy": "person",
+        "girl": "person",
+        "person": "person",
+        "human": "person",
+        "elephant": "elephant",
+        "dragon": "dragon",
+        "ball": "ball",
+        "bird": "bird",
+        "airplane": "airplane"
+    }
 
-    draw = ImageDraw.Draw(img)
+    for word, obj in keywords.items():
+        if word in text and obj not in objects:
+            objects.append(obj)
 
-    # Sun
+    if not objects:
+        objects = ["robot", "tree"]
 
-    draw.ellipse(
-        (510, 30, 570, 90),
-        fill="yellow"
-    )
-
-    # Ground
-
-    draw.rectangle(
-        (0, 270, 640, 360),
-        fill=(70, 180, 90)
-    )
-
-    # Trees
-
-    for x in [60, 560]:
-        draw.rectangle(
-            (x+20, 190, x+40, 280),
-            fill=(110, 65, 30)
-        )
-
-        draw.ellipse(
-            (x, 120, x+80, 220),
-            fill=(30, 130, 55)
-        )
-
-    # Animated boy
-
-    boy_x = int(180 + math.sin(t * 3) * 35)
-    boy_y = int(205 + abs(math.sin(t * 6)) * 5)
-
-    # Legs
-
-    draw.line(
-        (boy_x+25, boy_y+85, boy_x+10, boy_y+125),
-        fill="black",
-        width=8
-    )
-
-    draw.line(
-        (boy_x+35, boy_y+85, boy_x+55, boy_y+125),
-        fill="black",
-        width=8
-    )
-
-    # Body
-
-    draw.rounded_rectangle(
-        (boy_x, boy_y+35, boy_x+60, boy_y+95),
-        radius=12,
-        fill=(30, 90, 230)
-    )
-
-    # Head
-
-    draw.ellipse(
-        (boy_x+5, boy_y-15, boy_x+55, boy_y+40),
-        fill=(255, 205, 160),
-        outline="black",
-        width=2
-    )
-
-    # Eyes
-
-    draw.ellipse(
-        (boy_x+17, boy_y+5, boy_x+23, boy_y+12),
-        fill="black"
-    )
-
-    draw.ellipse(
-        (boy_x+38, boy_y+5, boy_x+44, boy_y+12),
-        fill="black"
-    )
-
-    # Elephant
-
-    elephant_x = int(400 + math.sin(t * 2) * 12)
-
-    draw.ellipse(
-        (elephant_x, 190, elephant_x+120, 275),
-        fill=(150, 150, 165),
-        outline="black",
-        width=2
-    )
-
-    draw.ellipse(
-        (elephant_x+10, 160, elephant_x+65, 225),
-        fill=(170, 170, 185),
-        outline="black"
-    )
-
-    draw.ellipse(
-        (elephant_x+78, 205, elephant_x+90, 217),
-        fill="black"
-    )
-
-    # Moving trunk
-
-    draw.arc(
-        (elephant_x+65, 220, elephant_x+125, 285),
-        start=0,
-        end=180,
-        fill=(100, 100, 120),
-        width=12
-    )
-
-    # Character caption
-
-    draw.text(
-        (20, 20),
-        scene,
-        fill="black"
-    )
-
-    return np.array(img)
+    return objects[:5]
 
 
-# -------------------------------
-# VIDEO GENERATION
-# -------------------------------
+def create_scene(objects, prompt):
 
-if st.button(
-    "🚀 Generate Cartoon Video",
-    type="primary"
-):
+    scene = {
+        "objects": objects,
+        "prompt": prompt,
+        "duration": duration
+    }
 
-    if not story.strip():
-        st.error("Please write your story.")
+    return scene
 
-    elif not voice_text.strip():
-        st.error("Please enter voiceover text.")
+
+if st.button("🚀 GENERATE 3D CARTOON"):
+
+    if not prompt.strip():
+        st.error("Please enter a prompt.")
 
     else:
 
-        try:
+        with st.spinner("Building your 3D scene..."):
 
-            with tempfile.TemporaryDirectory() as temp:
+            objects = detect_objects(prompt)
 
-                # VOICE GENERATION
+            scene = create_scene(
+                objects,
+                prompt
+            )
 
-                st.info("🎙️ Creating voiceover...")
+        st.success("3D Scene Created!")
 
-                audio_path = os.path.join(
-                    temp,
-                    "voice.mp3"
-                )
+        # 3D ENGINE
 
-                tts = gTTS(
-                    text=voice_text,
-                    lang=language
-                )
+        scene_json = json.dumps(scene)
 
-                tts.save(audio_path)
+        html = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport"
+content="width=device-width, initial-scale=1">
 
-                audio = AudioFileClip(audio_path)
+<style>
+body {
+    margin:0;
+    overflow:hidden;
+    background:#080d1b;
+}
+canvas {
+    display:block;
+}
+</style>
 
-                # SCENE GENERATION
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+</script>
+</head>
 
-                st.info("🎨 Creating 2D animation...")
+<body>
 
-                fps = 15
+<script>
 
-                video_duration = duration
+const sceneData = SCENE_DATA;
 
-                total_frames = fps * video_duration
+const scene = new THREE.Scene();
 
-                frames = []
+scene.background = new THREE.Color(0x87ceeb);
 
-                for i in range(total_frames):
+scene.fog = new THREE.Fog(0x87ceeb, 15, 60);
 
-                    t = i / fps
+const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth/window.innerHeight,
+    0.1,
+    1000
+);
 
-                    scene_number = min(
-                        3,
-                        int(t / (video_duration / 4)) + 1
+camera.position.set(7,6,12);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio,2)
+);
+
+renderer.shadowMap.enabled = true;
+
+document.body.appendChild(renderer.domElement);
+
+// LIGHTS
+
+const ambient = new THREE.AmbientLight(
+    0xffffff,
+    0.8
+);
+
+scene.add(ambient);
+
+const sun = new THREE.DirectionalLight(
+    0xffffff,
+    2
+);
+
+sun.position.set(5,10,5);
+
+sun.castShadow = true;
+
+scene.add(sun);
+
+// GROUND
+
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(100,100),
+    new THREE.MeshStandardMaterial({
+        color:0x42a85a
+    })
+);
+
+ground.rotation.x = -Math.PI/2;
+
+ground.position.y = -0.1;
+
+ground.receiveShadow = true;
+
+scene.add(ground);
+
+// OBJECT CREATION
+
+const animatedObjects = [];
+
+function material(color) {
+
+    return new THREE.MeshStandardMaterial({
+        color:color,
+        roughness:0.55,
+        metalness:0.05
+    });
+
+}
+
+function addMesh(geometry,color,x,y,z){
+
+    const mesh = new THREE.Mesh(
+        geometry,
+        material(color)
+    );
+
+    mesh.position.set(x,y,z);
+
+    mesh.castShadow = true;
+
+    mesh.receiveShadow = true;
+
+    scene.add(mesh);
+
+    return mesh;
+
+}
+
+function createRobot(x){
+
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2,1.5,0.8),
+        material(0x4287ff)
+    );
+
+    body.position.y = 1.5;
+
+    group.add(body);
+
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.65,32,32),
+        material(0xe5e8ee)
+    );
+
+    head.position.y = 2.7;
+
+    group.add(head);
+
+    const eye1 = addEye(-0.22);
+    const eye2 = addEye(0.22);
+
+    head.add(eye1);
+    head.add(eye2);
+
+    function addEye(x){
+
+        const eye = new THREE.Mesh(
+            new THREE.SphereGeometry(0.09,16,16),
+            material(0x111111)
+        );
+
+        eye.position.set(x,0.05,0.58);
+
+        return eye;
+
+    }
+
+    group.position.x = x;
+
+    scene.add(group);
+
+    animatedObjects.push(group);
+
+}
+
+function createPerson(x){
+
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.4,0.9,4,12),
+        material(0x2563eb)
+    );
+
+    body.position.y = 1.2;
+
+    group.add(body);
+
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42,32,32),
+        material(0xffc99c)
+    );
+
+    head.position.y = 2.15;
+
+    group.add(head);
+
+    group.position.x = x;
+
+    scene.add(group);
+
+    animatedObjects.push(group);
+
+}
+
+function createTree(x){
+
+    addMesh(
+        new THREE.CylinderGeometry(0.25,0.4,2,12),
+        0x784421,
+        x,1,0
+    );
+
+    addMesh(
+        new THREE.SphereGeometry(1.3,24,24),
+        0x078b42,
+        x,2.5,0
+    );
+
+}
+
+function createCar(x){
+
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(2,0.7,1),
+        material(0xff3333)
+    );
+
+    body.position.y = 0.7;
+
+    group.add(body);
+
+    const roof = new THREE.Mesh(
+        new THREE.BoxGeometry(1,0.6,0.8),
+        material(0xffcc22)
+    );
+
+    roof.position.y = 1.3;
+
+    group.add(roof);
+
+    for(let i=0;i<4;i++){
+
+        const wheel = new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                0.25,0.25,0.15,20
+            ),
+            material(0x222222)
+        );
+
+        wheel.rotation.z = Math.PI/2;
+
+        wheel.position.set(
+            i<2 ? -0.65:0.65,
+            0.35,
+            i%2===0 ? 0.55:-0.55
+        );
+
+        group.add(wheel);
+
+    }
+
+    group.position.x = x;
+
+    scene.add(group);
+
+    animatedObjects.push(group);
+
+}
+
+function createElephant(x){
+
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.SphereGeometry(0.9,32,32),
+        material(0x9999aa)
+    );
+
+    body.scale.set(1.3,0.85,0.9);
+
+    body.position.y = 1.1;
+
+    group.add(body);
+
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.6,32,32),
+        material(0xaaaaBB)
+    );
+
+    head.position.set(0.8,1.7,0);
+
+    group.add(head);
+
+    group.position.x = x;
+
+    scene.add(group);
+
+    animatedObjects.push(group);
+
+}
+
+function createAnimal(x,type){
+
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.SphereGeometry(0.7,24,24),
+        material(type==="cat" ? 0xffaa44:0x996633)
+    );
+
+    body.position.y=0.8;
+
+    group.add(body);
+
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5,24,24),
+        material(type==="cat" ? 0xffaa44:0x996633)
+    );
+
+    head.position.set(0.65,1.2,0);
+
+    group.add(head);
+
+    group.position.x=x;
+
+    scene.add(group);
+
+    animatedObjects.push(group);
+
+}
+
+function createDragon(x){
+
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.SphereGeometry(0.9,24,24),
+        material(0x27a65a)
+    );
+
+    body.position.y=1.4;
+
+    group.add(body);
+
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.55,24,24),
+        material(0x35cc77)
+    );
+
+    head.position.set(0.8,1.8,0);
+
+    group.add(head);
+
+    group.position.x=x;
+
+    scene.add(group);
+
+    animatedObjects.push(group);
+
+}
+
+// CREATE PROMPT OBJECTS
+
+const spacing = 3;
+
+sceneData.objects.forEach((type,index)=>{
+
+    const x = (
+        index-(sceneData.objects.length-1)/2
+    )*spacing;
+
+    if(type==="robot") createRobot(x);
+
+    if(type==="person") createPerson(x);
+
+    if(type==="tree") createTree(x);
+
+    if(type==="car") createCar(x);
+
+    if(type==="elephant") createElephant(x);
+
+    if(type==="dog" || type==="cat")
+        createAnimal(x,type);
+
+    if(type==="dragon") createDragon(x);
+
+    if(type==="bird") {
+
+        addMesh(
+            new THREE.SphereGeometry(0.4,20,20),
+            0xffcc22,x,3,0
+        );
+
+    }
+
+    if(type==="ball") {
+
+        const ball = addMesh(
+            new THREE.SphereGeometry(0.7,32,32),
+            0xff2222,x,1,0
+        );
+
+        animatedObjects.push(ball);
+
+    }
+
+    if(type==="house") {
+
+        addMesh(
+            new THREE.BoxGeometry(2,2,2),
+            0xffcc88,x,1,0
+        );
+
+        addMesh(
+            new THREE.ConeGeometry(1.6,1.2,4),
+            0xaa3333,x,2.6,0
+        );
+
+    }
+
+    if(type==="airplane") {
+
+        addMesh(
+            new THREE.BoxGeometry(3,0.25,0.4),
+            0xffffff,x,4,0
+        );
+
+    }
+
+});
+
+// CAMERA
+
+let time = 0;
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    time += 0.015;
+
+    animatedObjects.forEach((obj,index)=>{
+
+        obj.position.y +=
+            Math.sin(time*2+index)*0.003;
+
+        obj.rotation.y =
+            Math.sin(time+index)*0.15;
+
+    });
+
+    camera.position.x =
+        Math.sin(time*0.25)*2;
+
+    camera.lookAt(0,1,0);
+
+    renderer.render(scene,camera);
+
+}
+
+animate();
+
+window.addEventListener("resize",()=>{
+
+    camera.aspect =
+        window.innerWidth/window.innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+});
+
+</script>
+
+</body>
+</html>
+"""
+
+        html = html.replace(
+            "SCENE_DATA",
+            scene_json
+        )
+
+        st.subheader("🎥 Your 3D Cartoon Preview")
+
+        components.html(
+            html,
+            height=500,
+            scrolling=False
+        )
+
+        # VOICE GENERATION
+
+        if voice_text.strip():
+
+            with st.spinner("Generating voiceover..."):
+
+                try:
+
+                    with tempfile.NamedTemporaryFile(
+                        suffix=".mp3",
+                        delete=False
+                    ) as temp:
+
+                        audio_path = temp.name
+
+                    tts = gTTS(
+                        text=voice_text,
+                        lang=language
                     )
 
-                    scene_labels = [
-                        "A Beautiful Cartoon World",
-                        "The Boy Goes On An Adventure",
-                        "Meeting A Friendly Elephant",
-                        "A New Friendship Begins"
-                    ]
+                    tts.save(audio_path)
 
-                    frame = draw_scene(
-                        i,
-                        scene_labels[scene_number-1],
-                        t
+                    with open(audio_path,"rb") as f:
+
+                        st.audio(
+                            f.read(),
+                            format="audio/mp3"
+                        )
+
+                        st.download_button(
+                            "📥 Download Voiceover",
+                            f.read(),
+                            file_name="voiceover.mp3",
+                            mime="audio/mp3"
+                        )
+
+                    os.remove(audio_path)
+
+                except Exception as e:
+
+                    st.warning(
+                        f"Voice error: {e}"
                     )
-
-                    frames.append(frame)
-
-                # CREATE MP4
-
-                clip = ImageSequenceClip(
-                    frames,
-                    fps=fps
-                )
-
-                # Match video to voice duration
-
-                final_duration = max(
-                    video_duration,
-                    audio.duration
-                )
-
-                clip = clip.set_duration(
-                    final_duration
-                )
-
-                clip = clip.set_audio(audio)
-
-                output_path = os.path.join(
-                    temp,
-                    "cartoon_video.mp4"
-                )
-
-                clip.write_videofile(
-                    output_path,
-                    fps=fps,
-                    codec="libx264",
-                    audio_codec="aac",
-                    logger=None
-                )
-
-                clip.close()
-                audio.close()
-
-                # SHOW VIDEO
-
-                st.success("🎉 Cartoon video generated!")
-
-                st.video(output_path)
-
-                with open(output_path, "rb") as file:
-
-                    st.download_button(
-                        "📥 Download MP4 Video",
-                        data=file.read(),
-                        file_name="cartoon_video.mp4",
-                        mime="video/mp4"
-                    )
-
-        except Exception as e:
-
-            st.error(f"Generation Error: {e}")
 
 st.markdown("---")
 
 st.caption(
-    "2D Cartoon Studio | Python + Streamlit + Pillow + MoviePy"
+    "3D Cartoon Studio | Three.js + Streamlit + gTTS"
 )

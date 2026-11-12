@@ -1,7 +1,7 @@
 import os
 import time
 import streamlit as st
-from gtts import gTTS  # <-- Yahan 'gtts' lowercase hona chahiye
+from gtts import gTTS
 
 st.set_page_config(page_title="AI Video & Voice Generator", page_icon="🎬", layout="centered")
 
@@ -35,9 +35,17 @@ if st.button("🚀 Generate Video & Voice Clip", type="primary"):
                 st.subheader("🔊 Generated Voiceover:")
                 st.audio(audio_path, format="audio/mp3")
                 
-                # Step 3: Video Display
+                # Step 3: Dynamic Video Selection based on Prompt Keywords
                 st.subheader("🎥 Generated Video Preview:")
-                sample_video = "https://www.w3schools.com/html/mov_bbb.mp4"
+                query = script_text.lower()
+                
+                if "dance" in query or "boy" in query or "nach" in query:
+                    sample_video = "https://assets.mixkit.co/videos/preview/mixkit-group-of-friends-dancing-at-a-party-42998-large.mp4"
+                elif "cat" in query or "billi" in query or "code" in query:
+                    sample_video = "https://assets.mixkit.co/videos/preview/mixkit-hands-typing-on-a-laptop-keyboard-42810-large.mp4"
+                else:
+                    sample_video = "https://www.w3schools.com/html/mov_bbb.mp4" # Default cartoon/rabbit video
+                
                 st.video(sample_video)
                 
                 # Download Audio Button

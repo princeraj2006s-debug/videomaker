@@ -1,5 +1,7 @@
 streamlit
-gtts
-
-
+pillow
+numpy
+moviepy==1.0.3
+gTTS
+imageio-ffmpeg
 

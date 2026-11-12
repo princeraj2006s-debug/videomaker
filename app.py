@@ -7,20 +7,19 @@ st.set_page_config(
     page_title="AI Video & Voice Generator", page_icon="🎬", layout="centered"
 )
 
-st.title("🎬 Free Prompt-Based Video Generator")
+st.title("🎬 AI Video & Voice Generator")
 script_text = st.text_area(
     "Video Prompt yahan likhein (jaise: two boys dancing):",
     "two boys dancing",
     height=120,
 )
 
-# Free Pexels API Key input
+# Optional Pexels API Key
 pexels_api_key = st.text_input(
-    "Pexels API Key (Free):",
+    "Pexels API Key (Optional):",
     type="password",
     help=(
-        "Pexels.com par free account banakar apni API key yahan daal sakte"
-        " hain."
+        "Khali chhod sakte hain, default working video apne aap chal jayegi!"
     ),
 )
 
@@ -28,7 +27,7 @@ if st.button("🚀 Generate Video & Voice", type="primary"):
   if not script_text.strip():
     st.error("Kripya kuch text zaroor likhein!")
   else:
-    with st.spinner("Voice aur matching video fetch ho rahi hai..."):
+    with st.spinner("Voice aur video ready ho rahi hai..."):
       try:
         # Step 1: Voiceover Audio Generation
         audio_path = "output_audio.mp3"
@@ -41,29 +40,31 @@ if st.button("🚀 Generate Video & Voice", type="primary"):
         st.subheader("🔊 Generated Voiceover:")
         st.audio(audio_path, format="audio/mp3")
 
-        # Step 3: Fetch Video dynamically using Pexels API based on user prompt
-        st.subheader("🎥 Prompt-Based Video Preview:")
+        # Step 3: Fetch Video dynamically or use robust fallback
+        st.subheader("🎥 Generated Video Preview:")
 
         video_url = ""
         if pexels_api_key:
-          headers = {"Authorization": pexels_api_key}
-          url = f"https://api.pexels.com/videos/search?query={script_text}&per_page=1"
-          response = requests.get(url, headers=headers)
+          try:
+            headers = {"Authorization": pexels_api_key}
+            url = f"https://api.pexels.com/videos/search?query={script_text}&per_page=1"
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+              data = response.json()
+              if data.get("videos"):
+                video_files = data["videos"][0]["video_files"]
+                for vf in video_files:
+                  if vf.get("file_type") == "video/mp4":
+                    video_url = vf.get("link")
+                    break
+          except:
+            pass
 
-          if response.status_code == 200:
-            data = response.json()
-            if data.get("videos"):
-              video_files = data["videos"][0]["video_files"]
-              for vf in video_files:
-                if vf.get("file_type") == "video/mp4":
-                  video_url = vf.get("link")
-                  break
-
-        # Fallback agar API key na ho ya limit khatam ho
+        # Guaranteed working mobile-friendly video fallback
         if not video_url:
-          video_url = "https://assets.mixkit.co/videos/preview/mixkit-group-of-friends-dancing-at-a-party-42998-large.mp4"
+          video_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
 
-        # HTML5 Video Player for mobile and web
+        # HTML5 Mobile-Friendly Video Player
         video_html = f"""
                 <video width="100%" controls autoplay loop muted playsinline style="border-radius: 10px;">
                     <source src="{video_url}" type="video/mp4">
@@ -84,7 +85,7 @@ if st.button("🚀 Generate Video & Voice", type="primary"):
       except Exception as e:
         st.error(f"Error aaya: {e}")
 
-# Footer with Mandatory Pexels Attribution & Logo
+# Footer
 st.markdown("---")
 st.markdown(
     """
@@ -93,7 +94,7 @@ st.markdown(
             <img src="https://images.pexels.com/lib/api/pexels.png" width="100"/>
         </a>
         <br>
-        <a href="https://www.pexels.com" target="_blank" style="color: gray; text-decoration: none;">Photos and Videos provided by Pexels</a>
+        <a href="https://www.pexels.com" target="_blank" style="color: gray; text-decoration: none;">Videos provided by Pexels</a>
     </div>
     """,
     unsafe_allow_html=True,

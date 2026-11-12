@@ -35,12 +35,19 @@ if st.button("🚀 Generate Video & Voice Clip", type="primary"):
                 st.subheader("🔊 Generated Voiceover:")
                 st.audio(audio_path, format="audio/mp3")
                 
-                # Step 3: Reliable HTML5 Video Display for Mobile
+                # Step 3: Prompt-based short video selection
                 st.subheader("🎥 Generated Video Preview:")
                 query = script_text.lower()
                 
-                # Using 100% reliable archive server link that never blocks
-                video_url = "https://archive.org/download/BigBuckBunny_328/BigBuckBunny_512kb.mp4"
+                if "dance" in query or "boy" in query or "nach" in query or "ladka" in query:
+                    # Short dancing clip link
+                    video_url = "https://assets.mixkit.co/videos/preview/mixkit-group-of-friends-dancing-at-a-party-42998-large.mp4"
+                elif "cat" in query or "billi" in query or "code" in query:
+                    # Short cat/coding clip link
+                    video_url = "https://assets.mixkit.co/videos/preview/mixkit-hands-typing-on-a-laptop-keyboard-42810-large.mp4"
+                else:
+                    # Short general animation preview
+                    video_url = "https://assets.mixkit.co/videos/preview/mixkit-tree-branches-in-the-breeze-1186-large.mp4"
                 
                 video_html = f"""
                 <video width="100%" controls autoplay loop muted playsinline style="border-radius: 10px;">

@@ -1,4 +1,5 @@
 streamlit
 gtts
-moviepy==1.0.3
+replicate
+
 

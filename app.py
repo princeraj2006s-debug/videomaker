@@ -1,68 +1,182 @@
 import os
-import time
+import math
+import requests
 import streamlit as st
+import replicate
+
 from gtts import gTTS
+from moviepy.editor import (
+    VideoFileClip,
+    AudioFileClip,
+    concatenate_videoclips
+)
 
-st.set_page_config(page_title="AI Video & Voice Generator", page_icon="🎬", layout="centered")
+st.set_page_config(
+    page_title="AI Cartoon Video Generator",
+    page_icon="🎬",
+    layout="centered"
+)
 
-st.title("🎬 AI Video & Voice Generator")
-script_text = st.text_area(
-    "Video Prompt / Script yahan likhein:", 
-    "two boys dancing",
-    height=120
+st.title("🎬 AI Cartoon Video Generator")
+
+st.write("Turn your imagination into animated videos!")
+
+# USER INPUT
+
+video_prompt = st.text_area(
+    "Describe your cartoon video:",
+    "Two cute cartoon boys dancing together in a colorful park, 3D animation style."
+)
+
+voice_text = st.text_area(
+    "What should the characters say?",
+    "Hello everyone! Welcome to our cartoon world!"
 )
 
 col1, col2 = st.columns(2)
-with col1:
-    voice_lang = st.selectbox("Voice Language:", ["en", "hi"])
-with col2:
-    model_type = st.selectbox("Generation Mode:", ["Standard Animation", "HD Preview"])
 
-if st.button("🚀 Generate Video & Voice Clip", type="primary"):
-    if not script_text.strip():
-        st.error("Kripya kuch text zaroor likhein!")
+with col1:
+    language = st.selectbox(
+        "Voice Language",
+        ["en", "hi"]
+    )
+
+with col2:
+    duration = st.selectbox(
+        "Video Duration",
+        [5, 10, 15]
+    )
+
+if st.button("🚀 Generate AI Video"):
+
+    if not video_prompt.strip():
+        st.error("Please enter a video prompt.")
+
     else:
-        with st.spinner("Audio aur animation process ho raha hai..."):
-            try:
-                # Step 1: Voiceover Audio generation
-                audio_path = "output_audio.mp3"
-                tts = gTTS(text=script_text, lang=voice_lang, slow=False)
-                tts.save(audio_path)
-                
-                st.success("🎉 Audio aur Animation successfully ready ho gaye hain!")
-                
-                # Step 2: Display Audio
-                st.subheader("🔊 Generated Voiceover:")
-                st.audio(audio_path, format="audio/mp3")
-                
-                # Step 3: Prompt-based Animated GIF Display (100% Mobile Friendly)
-                st.subheader("🎥 Generated Animation Preview:")
-                query = script_text.lower()
-                
-                if "dance" in query or "boy" in query or "nach" in query or "ladka" in query:
-                    # Dancing animation GIF
-                    gif_url = "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3ZkMnI5M3VsdDhzMWFtbGg2ZHVrcnFwZ2V4bWx3MmpmbTRubG15bmJucnZtb2E2MG1uZnFhOXVsayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlRnAWXxn0MhOBK/giphy.gif"
-                elif "cat" in query or "billi" in query or "code" in query:
-                    # Coding/Cat animation GIF
-                    gif_url = "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHp1MWJjMDR4bWx3MmpmbTRubG15bmJucnZtb2E2MG1uZnFhOXVsayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/JIX9t2j0ZTN9S/giphy.gif"
+
+        try:
+
+            with st.spinner("🎨 Generating AI cartoon video..."):
+
+                # STEP 1: GENERATE VIDEO
+
+                token = st.secrets["REPLICATE_API_TOKEN"]
+
+                client = replicate.Client(
+                    api_token=token
+                )
+
+                output = client.run(
+                    "alibaba/wan-3",
+                    input={
+                        "prompt": (
+                            "High quality 3D cartoon animation. "
+                            + video_prompt
+                        ),
+                        "duration": duration,
+                        "resolution": "480p",
+                        "aspect_ratio": "16:9"
+                    }
+                )
+
+                # GET VIDEO URL
+
+                if isinstance(output, list):
+                    video_url = str(output[0])
+                elif hasattr(output, "url"):
+                    video_url = output.url()
                 else:
-                    # General cartoon animation GIF
-                    gif_url = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3VsdDhzMWFtbGg2ZHVrcnFwZ2V4bWx3MmpmbTRubG15bmJucnZtb2E2MG1uZnFhOXVsayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oKIPnAiaMCws8nOsE/giphy.gif"
-                
-                st.image(gif_url, use_container_width=True)
-                
-                # Download Audio Button
-                with open(audio_path, "rb") as f:
-                    st.download_button(
-                        label="📥 Download Audio",
-                        data=f,
-                        file_name="voice_clip.mp3",
-                        mime="audio/mp3"
+                    video_url = str(output)
+
+                # DOWNLOAD VIDEO
+
+                response = requests.get(
+                    video_url,
+                    timeout=180
+                )
+
+                response.raise_for_status()
+
+                with open("generated_video.mp4", "wb") as f:
+                    f.write(response.content)
+
+            st.success("AI Video Generated!")
+
+            with st.spinner("🎙️ Generating voiceover..."):
+
+                # STEP 2: GENERATE VOICE
+
+                tts = gTTS(
+                    text=voice_text,
+                    lang=language
+                )
+
+                tts.save("voice.mp3")
+
+            with st.spinner("🎬 Combining video and voice..."):
+
+                # STEP 3: COMBINE VIDEO + AUDIO
+
+                video = VideoFileClip(
+                    "generated_video.mp4"
+                )
+
+                audio = AudioFileClip("voice.mp3")
+
+                # Repeat video if voice is longer
+
+                if audio.duration > video.duration:
+
+                    count = math.ceil(
+                        audio.duration / video.duration
                     )
 
-            except Exception as e:
-                st.error(f"Error aaya: {e}")
+                    video = concatenate_videoclips(
+                        [video] * count
+                    )
 
-# Footer
+                video = video.subclip(
+                    0,
+                    min(video.duration, audio.duration)
+                )
+
+                final_video = video.set_audio(
+                    audio.subclip(0, video.duration)
+                )
+
+                final_video.write_videofile(
+                    "final_video.mp4",
+                    codec="libx264",
+                    audio_codec="aac"
+                )
+
+                video.close()
+                audio.close()
+                final_video.close()
+
+            # STEP 4: DISPLAY VIDEO
+
+            st.success("🎉 Your cartoon video is ready!")
+
+            st.subheader("🎥 Generated Video")
+
+            st.video("final_video.mp4")
+
+            # STEP 5: DOWNLOAD
+
+            with open("final_video.mp4", "rb") as f:
+
+                st.download_button(
+                    "📥 Download Cartoon Video",
+                    data=f,
+                    file_name="my_cartoon_video.mp4",
+                    mime="video/mp4"
+                )
+
+        except Exception as e:
+
+            st.error(f"Generation Error: {str(e)}")
+
 st.markdown("---")
-st.caption("Powered by Streamlit & gTTS")
+
+st.caption("Powered by Streamlit, Wan AI & gTTS")
